@@ -8,6 +8,8 @@ from jobrunner.database import get_job, get_steps
 from jobrunner.database import list_jobs
 from jobrunner.database import get_failed_steps, reset_failed_steps
 from jobrunner.engine import run_job
+from rich.console import Console
+from rich.table import Table
 
 app = typer.Typer(help="Jobrunner CLI")
 
@@ -15,7 +17,7 @@ cli = typer.Typer()
 app.add_typer(cli)
 
 
-
+console = Console()
 @cli.command()
 def init():
     """
@@ -65,24 +67,36 @@ def status(job_id: str):
     job = get_job(job_id)
 
     if not job:
-        typer.echo("Job not found")
+        console.print("[bold red]Job not found[/bold red]")
         return
 
-    typer.echo(f"\nJob ID: {job[0]}")
-    typer.echo(f"Pipeline: {job[1]}")
-    typer.echo(f"Status: {job[2]}")
-    typer.echo(f"Created: {job[3]}")
-    typer.echo(f"Completed: {job[4]}\n")
+    console.print(f"\n[bold cyan]Pipeline:[/bold cyan] {job[1]}")
+    console.print(f"[bold cyan]Job ID:[/bold cyan] {job[0]}")
+    console.print(f"[bold cyan]Status:[/bold cyan] {job[2].upper()}\n")
 
     steps = get_steps(job_id)
 
-    typer.echo("Steps:")
+    table = Table(title="Steps")
+
+    table.add_column("Step", style="magenta")
+    table.add_column("Status", style="green")
+    table.add_column("Retries", style="yellow")
+    table.add_column("Started", style="cyan")
+    table.add_column("Completed", style="cyan")
+
     for step in steps:
         name, status, retry_count, max_retries, started, completed = step
 
-        typer.echo(
-            f"- {name} | status: {status} | retries: {retry_count}/{max_retries}"
+        table.add_row(
+            name,
+            status.upper(),
+            f"{retry_count}/{max_retries}",
+            str(started),
+            str(completed),
         )
+
+    console.print(table)
+
 
 @cli.command()
 def list():
@@ -93,18 +107,22 @@ def list():
     jobs = list_jobs()
 
     if not jobs:
-        typer.echo("No jobs found")
+        console.print("[bold red]No jobs found[/bold red]")
         return
 
-    typer.echo("\nJobs:\n")
+    table = Table(title="Jobrunner Jobs")
+
+    table.add_column("Job ID", style="cyan")
+    table.add_column("Pipeline", style="magenta")
+    table.add_column("Status", style="green")
+    table.add_column("Created At", style="yellow")
 
     for job in jobs:
         job_id, name, status, created = job
+        table.add_row(job_id, name, status.upper(), created)
 
-        typer.echo(
-            f"{job_id} | {name} | {status} | created: {created}"
-        )
-
+    console.print(table)
+    
 @cli.command()
 def logs(job_id: str, step: str = None):
     """
