@@ -6,7 +6,7 @@ def parse_pipeline(file_path: str):
     """
     Parse and validate pipeline YAML file
     """
-
+    
     path = Path(file_path)
 
     if not path.exists():
