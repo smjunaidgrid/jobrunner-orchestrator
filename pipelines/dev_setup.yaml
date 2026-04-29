@@ -1,0 +1,14 @@
+name: dev_setup
+
+steps:
+  - name: check_python
+    command: "python --version"
+    retry: 0
+
+  - name: install_requirements
+    command: "pip install -r requirements.txt"
+    retry: 1
+
+  - name: verify_install
+    command: "pip list"
+    retry: 0

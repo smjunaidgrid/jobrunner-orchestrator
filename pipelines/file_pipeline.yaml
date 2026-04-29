@@ -1,0 +1,14 @@
+name: file_pipeline
+
+steps:
+  - name: create_file
+    command: "echo Hello World > test.txt"
+    retry: 0
+
+  - name: read_file
+    command: "cat test.txt"
+    retry: 0
+
+  - name: delete_file
+    command: "rm test.txt"
+    retry: 0

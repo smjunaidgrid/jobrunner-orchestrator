@@ -1,9 +1,10 @@
 name: retry_test
-steps:
-  - name: step1
-    command: "echo Fixed"
-    retry: 1
 
-  - name: step2
-    command: "echo Hello"
+steps:
+  - name: always_fail
+    command: "exit 1"
+    retry: 2
+
+  - name: never_reached
+    command: "echo Should not execute"
     retry: 0

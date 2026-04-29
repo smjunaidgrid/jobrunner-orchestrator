@@ -1,65 +1,39 @@
 import subprocess
-import sqlite3
-from pathlib import Path
-
-DB_PATH = Path(".jobrunner/jobs.db")
-
+from jobrunner.db.connection import get_connection
+from jobrunner.core.config import LOG_DIR
 
 def run_job(job_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(
-        """
-        SELECT id, name, command, retry_count, max_retries
-        FROM steps
-        WHERE job_id=?
-        ORDER BY rowid
-        """,
+        "SELECT id, name, command, retry_count, max_retries FROM steps WHERE job_id=? ORDER BY rowid",
         (job_id,),
     )
 
     steps = cursor.fetchall()
 
     for step_id, name, command, retry_count, max_retries in steps:
-
         attempt = retry_count
 
         while attempt <= max_retries:
-
-            print(f"Running step: {name} (attempt {attempt + 1})")
-
             cursor.execute(
-                "UPDATE steps SET status=?, started_at=datetime('now') WHERE id=?",
-                ("running", step_id),
+                "UPDATE steps SET status='running', started_at=datetime('now') WHERE id=?",
+                (step_id,),
             )
             conn.commit()
 
-            result = subprocess.run(
-                command,
-                shell=True,
-                capture_output=True,
-                text=True,
-            )
+            result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
-            log_dir = Path(f".jobrunner/logs/{job_id}")
+            log_dir = LOG_DIR / job_id
             log_dir.mkdir(parents=True, exist_ok=True)
 
-            log_file = log_dir / f"{name}_attempt{attempt+1}.log"
-
-            with open(log_file, "w") as f:
-                f.write(result.stdout)
-                f.write(result.stderr)
+            with open(log_dir / f"{name}_attempt{attempt + 1}.log", "w") as f:
+                f.write(result.stdout + result.stderr)
 
             if result.returncode == 0:
                 cursor.execute(
-                    """
-                    UPDATE steps
-                    SET status='success',
-                        completed_at=datetime('now'),
-                        retry_count=?
-                    WHERE id=?
-                    """,
+                    "UPDATE steps SET status='success', completed_at=datetime('now'), retry_count=? WHERE id=?",
                     (attempt, step_id),
                 )
                 conn.commit()
@@ -67,25 +41,17 @@ def run_job(job_id):
 
             attempt += 1
 
-            cursor.execute(
-                "UPDATE steps SET retry_count=? WHERE id=?",
-                (attempt, step_id),
-            )
-            conn.commit()
-
             if attempt > max_retries:
-                print(f"Step failed after retries: {name}")
-
                 cursor.execute(
                     """
                     UPDATE steps
                     SET status='failed',
+                        retry_count=?,
                         completed_at=datetime('now')
                     WHERE id=?
                     """,
-                    (step_id,),
+                    (max_retries, step_id),
                 )
-
                 cursor.execute(
                     """
                     UPDATE jobs
@@ -95,10 +61,12 @@ def run_job(job_id):
                     """,
                     (job_id,),
                 )
-
                 conn.commit()
                 conn.close()
                 return
+
+            cursor.execute("UPDATE steps SET retry_count=? WHERE id=?", (attempt, step_id))
+            conn.commit()
 
     cursor.execute(
         """
@@ -109,8 +77,5 @@ def run_job(job_id):
         """,
         (job_id,),
     )
-
     conn.commit()
     conn.close()
-
-    print("Job completed successfully")
