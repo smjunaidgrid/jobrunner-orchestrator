@@ -1,4 +1,4 @@
-from jobrunner.cli import app
+from jobrunner.main import app
 
 if __name__ == "__main__":
     app()

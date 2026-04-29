@@ -1,5 +1,4 @@
 import subprocess
-from pathlib import Path
 from jobrunner.db.connection import get_connection
 from jobrunner.core.config import LOG_DIR
 
@@ -29,7 +28,7 @@ def run_job(job_id):
             log_dir = LOG_DIR / job_id
             log_dir.mkdir(parents=True, exist_ok=True)
 
-            with open(log_dir / f"{name}_{attempt}.log", "w") as f:
+            with open(log_dir / f"{name}_attempt{attempt + 1}.log", "w") as f:
                 f.write(result.stdout + result.stderr)
 
             if result.returncode == 0:
@@ -41,16 +40,42 @@ def run_job(job_id):
                 break
 
             attempt += 1
-            cursor.execute("UPDATE steps SET retry_count=? WHERE id=?", (attempt, step_id))
-            conn.commit()
 
             if attempt > max_retries:
-                cursor.execute("UPDATE steps SET status='failed' WHERE id=?", (step_id,))
-                cursor.execute("UPDATE jobs SET status='failed' WHERE id=?", (job_id,))
+                cursor.execute(
+                    """
+                    UPDATE steps
+                    SET status='failed',
+                        retry_count=?,
+                        completed_at=datetime('now')
+                    WHERE id=?
+                    """,
+                    (max_retries, step_id),
+                )
+                cursor.execute(
+                    """
+                    UPDATE jobs
+                    SET status='failed',
+                        completed_at=datetime('now')
+                    WHERE id=?
+                    """,
+                    (job_id,),
+                )
                 conn.commit()
                 conn.close()
                 return
 
-    cursor.execute("UPDATE jobs SET status='success' WHERE id=?", (job_id,))
+            cursor.execute("UPDATE steps SET retry_count=? WHERE id=?", (attempt, step_id))
+            conn.commit()
+
+    cursor.execute(
+        """
+        UPDATE jobs
+        SET status='success',
+            completed_at=datetime('now')
+        WHERE id=?
+        """,
+        (job_id,),
+    )
     conn.commit()
     conn.close()

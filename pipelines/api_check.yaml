@@ -1,0 +1,10 @@
+name: api_check
+
+steps:
+  - name: ping_google
+    command: "curl -I https://www.google.com"
+    retry: 1
+
+  - name: check_status
+    command: "echo API check done"
+    retry: 0

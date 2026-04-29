@@ -1,13 +1,12 @@
 import typer
 import os
-from jobrunner.engine import run_job
 from pathlib import Path
-from jobrunner.parser import parse_pipeline
-from jobrunner.database import create_tables, create_job, create_steps
-from jobrunner.database import get_job, get_steps
-from jobrunner.database import list_jobs
-from jobrunner.database import get_failed_steps, reset_failed_steps
-from jobrunner.engine import run_job
+from jobrunner.engine.runner import run_job
+from jobrunner.parser.pipeline_parser import parse_pipeline
+from jobrunner.repositories.job_repository import create_tables, create_job, create_steps
+from jobrunner.repositories.job_repository import get_job, get_steps
+from jobrunner.repositories.job_repository import list_jobs
+from jobrunner.repositories.job_repository import get_failed_steps, reset_failed_steps
 from rich.console import Console
 from rich.table import Table
 
@@ -18,6 +17,7 @@ app.add_typer(cli)
 
 
 console = Console()
+
 @cli.command()
 def init():
     """
@@ -39,8 +39,6 @@ def init():
     create_tables()
 
     typer.echo("Jobrunner initialized")
-
-
 
 @cli.command()
 def run(pipeline_file: str):

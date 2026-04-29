@@ -41,7 +41,10 @@ def create_job(name):
     job_id = str(uuid.uuid4())
 
     cursor.execute(
-        "INSERT INTO jobs VALUES (?, ?, ?, ?, ?)",
+        """
+        INSERT INTO jobs (id, name, status, created_at, completed_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
         (job_id, name, "pending", datetime.utcnow().isoformat(), None),
     )
 
@@ -56,7 +59,20 @@ def create_steps(job_id, steps):
 
     for step in steps:
         cursor.execute(
-            "INSERT INTO steps VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            """
+            INSERT INTO steps (
+                id,
+                job_id,
+                name,
+                command,
+                status,
+                retry_count,
+                max_retries,
+                started_at,
+                completed_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
             (
                 str(uuid.uuid4()),
                 job_id,
